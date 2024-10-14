@@ -8,16 +8,18 @@ from scipy.optimize import curve_fit
 
 ## Dados Base ##
 
-P_atm = ufloat(689*133.32,0.5*133.32)
-T_atm = ufloat(25,0.5)
-g = ufloat(9.78,0.01)
+#Todos os dados estão no formato ufloat(dado,incerteza)
 
-d1 = ufloat(7.5/100,0.005/1000)
-dt = ufloat(4.735/100,0.005/1000)
+P_atm = ufloat(689*133.32,0.5*133.32) # Pressão atmosférica
+T_atm = ufloat(25,0.5) # Temperatura ambiente
+g = ufloat(9.78,0.01) # Aceleração da gravidade
 
-rho_agua = cp.PropsSI("D", "T", T_atm.n + 273.15, "P", P_atm.n, 'water')
+d1 = ufloat(7.5/100,0.005/1000) # Diâmetro do tubo
+dt = ufloat(4.735/100,0.005/1000) # Diâmetro do orifício
 
-#Formato : {Frequência : [Delta H, Pressão Estática]}
+rho_agua = cp.PropsSI("D", "T", T_atm.n + 273.15, "P", P_atm.n, 'water') # Densidade da água
+
+#Dicionário para armazenatar os dados coletados. Formato : {Frequência : [Delta H, Pressão Estática]}
 medicoes = {
     "hz15": [ufloat(0.215/100,0.005/1000) , ufloat(2.1/100,0.005/1000)],
     "hz30": [ufloat(0.77/100,0.005/1000) , ufloat(7.77/100,0.005/1000)],
@@ -25,47 +27,59 @@ medicoes = {
     "hz60": [ufloat(3.32/100,0.005/1000) , ufloat(30.1/100,0.5/1000)]
 }
 
-resultados = {}
+resultados = {} # Dicionário para armazenar os resultados
 
 def calculo_vazao(d1,dt,rho,Delta_P,mi):
-    Re = ufloat(100,0)
-    parada = 0.001
-    erro = 100
-    betha = dt/d1
-    while erro > parada:
+    Re = ufloat(100,0) # Estimativa inicial de Re
+    parada = 0.001 # Critério de parada
+    erro = 100 # Valor inicial arbitrário para o erro
+    betha = dt/d1 # Cálculo do Betha
+    while erro > parada: #Loop iterativo
+        # Equação do C
         C = 0.5959 + (0.0312*pow(betha,2.1)) - (0.184*pow(betha,8)) + (91.71*pow(betha,2.5)*pow(Re,-0.75)) + (((0.09*pow(betha,4))/(1 - pow(betha,4)))*0.4333) - (0.0337*pow(betha,3)*0.47)
+        
+        #Equação da vazão mássica
         m = (C*(pi*pow(dt,2)/4)*sqrt(2*rho*Delta_P))/sqrt(1-pow(betha,4))
+
+        #Equação do número de Reynolds
         Re_2 = (4*m)/(mi*pi*d1)
+
+        #Cálculo do erro
         erro = abs(Re_2.n - Re.n)
         Re = Re_2
     return {"C":C,"Vazão Volumétrica":m/rho,"Número de Reynolds":Re}
 
-difrenca_pressao = lambda rho,delta,g: rho*delta*g
-p_estatica  = lambda rho,delta,g,patm: rho*delta*g + patm
+difrenca_pressao = lambda rho,delta,g: rho*delta*g # Função para cálculo da diferença de pressão
+p_estatica  = lambda rho,delta,g,patm: rho*delta*g + patm # Função para cálculo da pressão estática
 
-str_resultados = "\n ---- RESULTADOS ----\n\n"
-y = []
-for frequencia in medicoes:
-    DeltaP = difrenca_pressao(rho_agua,medicoes[frequencia][0],g)
-    P_est = p_estatica(rho_agua,medicoes[frequencia][1],g,P_atm)
-    rho_ar = cp.PropsSI("D", "T", T_atm.n + 273.15, "P", P_est.n, 'air')
-    mi = cp.PropsSI("V", "T", T_atm.n + 273.15, "P", P_est.n, 'air')
+str_resultados = "\n ---- RESULTADOS ----\n\n" #String para mostrar os resultados
+
+y = [] # Lista que será usada no ajuste de curva. Armazena os resultados da vazão volumétrica das frequências na ordem de cálculo (15,30,45,60)
+
+for frequencia in medicoes: #Loop para cálculo de todas as frequências medidas
+    DeltaP = difrenca_pressao(rho_agua,medicoes[frequencia][0],g) # Diferença de pressão
+    P_est = p_estatica(rho_agua,medicoes[frequencia][1],g,P_atm) # Pressão Estática
+    
+    rho_ar = cp.PropsSI("D", "T", T_atm.n + 273.15, "P", P_est.n, 'air') # Densidade do Ar
+    mi = cp.PropsSI("V", "T", T_atm.n + 273.15, "P", P_est.n, 'air') # Viscosidade do Ar
+    
     resultados[frequencia] = calculo_vazao(d1,dt,rho_ar,DeltaP,mi)
     y += [resultados[frequencia]["Vazão Volumétrica"].n]
-    str_resultados += frequencia + ": C = " + str(resultados[frequencia]["C"]) + "; Vazão Volumétrica = " + str(resultados[frequencia]["Vazão Volumétrica"]) + "; Número de Reynolds = " + str(resultados[frequencia]["Número de Reynolds"]) + "\n"
 
+    #Formatação da string para apresentação de resultados
+    str_resultados += frequencia + ": C = " + str(resultados[frequencia]["C"]) + "; Vazão Volumétrica = " + str(resultados[frequencia]["Vazão Volumétrica"]) + "; Número de Reynolds = " + str(resultados[frequencia]["Número de Reynolds"]) + "\n"
 
 print(str_resultados)
 
-# Arrays com os dados
+# Arrays com os dados para o ajuste
 x = np.array([15,30,45,60])
 y = np.array(y)
 
 # Função para cálculo de R²
 def calcular_r2(y, y_pred):
     residuos = y - y_pred
-    sq_res = np.sum(residuos**2) #soma dos resíduos ao quadrado
-    sq_tot = np.sum((y - np.mean(y))**2) #soma total ao quadrado
+    sq_res = np.sum(residuos**2) # soma dos resíduos ao quadrado
+    sq_tot = np.sum((y - np.mean(y))**2) # soma total ao quadrado
     return 1 - (sq_res / sq_tot)
 
 # Função para exibir a equação do polinômio
@@ -84,12 +98,12 @@ def equacao_polinomial(p):
 # Ajuste para diferentes graus de polinômio
 melhor_R2 = -1
 melhor_grau = 0
-melhor_fit = None
-graus = [1, 2, 3]
+melhor_ajuste = None
+graus = [1, 2, 3] # Possíveis graus de polinômio considereando a quantidade de dados
 
 plt.scatter(x, y, label='Dados reais', color='blue')
 
-for grau in graus:
+for grau in graus: # testagem dos diferentes graus de polinômio
     # Obter os coeficientes do ajuste polinomial
     p = np.polyfit(x, y, grau)
     
@@ -103,16 +117,17 @@ for grau in graus:
     if r2 > melhor_R2:
         melhor_R2 = r2
         melhor_grau = grau
-        melhor_fit = p
+        melhor_ajuste = p
 
 # Visualização do melhor ajuste
-melhor_y_previsto = np.polyval(melhor_fit, x)
+melhor_y_previsto = np.polyval(melhor_ajuste, x)
 
 # Mostrar a equação do ajuste final
-equacao = equacao_polinomial(melhor_fit)
+equacao = equacao_polinomial(melhor_ajuste)
 print(f"Equação do ajuste final (grau {melhor_grau}):\n")
 print(equacao + '\n')
 
+#Plotagem do gráfico com o ajuste
 plt.plot(x, melhor_y_previsto, label=f'Ajuste Polinomial (grau {melhor_grau})', color='red')
 plt.title(f'Melhor Ajuste Polinomial\nGrau: {melhor_grau}, R²: {melhor_R2}\nEquação: {equacao}')
 plt.legend()
