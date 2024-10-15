@@ -130,5 +130,6 @@ print(equacao + '\n')
 #Plotagem do gráfico com o ajuste
 plt.plot(x, melhor_y_previsto, label=f'Ajuste Polinomial (grau {melhor_grau})', color='red')
 plt.title(f'Melhor Ajuste Polinomial\nGrau: {melhor_grau}, R²: {melhor_R2}\nEquação: {equacao}')
-plt.legend()
+plt.xlabel('Frequência (hz)') 
+plt.ylabel('Vazão Volumétrica ($m^3$/s)')  
 plt.show()
