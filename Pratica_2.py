@@ -17,9 +17,9 @@ g = ufloat(9.78,0.01) # Aceleração da gravidade
 d1 = ufloat(7.5/100,0.025/1000) # Diâmetro do tubo
 dt = ufloat(4.735/100,0.025/1000) # Diâmetro do orifício
 
-m_esfera = ufloat(19.4/1000,0.1/1000)
-D_esfera = ufloat(31.05/1000,0.025/1000)
-D_tubo = ufloat(34.05/1000,0.025/1000)
+m_esfera = ufloat(19.4/1000,0.1/1000) # Massa da esfera
+D_esfera = ufloat(31.05/1000,0.025/1000) # Diâmetro da esfera
+D_tubo = ufloat(34.05/1000,0.025/1000) #Diâmetro do tubo da esfera
 
 rho_agua = cp.PropsSI("D", "T", T_atm.n + 273.15, "P", P_atm.n, 'water') # Densidade da água
 
@@ -72,11 +72,11 @@ str_resultados += "Frequênica = " + str(medicoes[0].n) + "; C = " + str(resulta
 
 str_resultados += "\n -- ESFERA --\n\n "
 
-V_esfera = 4*pi*pow(D_esfera/2,3)/3
+V_esfera = 4*pi*pow(D_esfera/2,3)/3 # Volume da esfera
 
-E = rho_ar*g*V_esfera
-W = m_esfera*g
-D = W - E
+E = rho_ar*g*V_esfera # Força de empuxo
+W = m_esfera*g # Força peso
+D = W - E # Força de arrasto
 
 def calculo_vazao_esfera(D_esfera,D_tubo,rho,mi):
     Re = ufloat(100,0) # Estimativa inicial de Re
@@ -84,21 +84,26 @@ def calculo_vazao_esfera(D_esfera,D_tubo,rho,mi):
     erro = 100 # Valor inicial arbitrário para o erro
 
     while erro > parada: #Loop iterativo
-        # Equação do C
+        # Equação do Cd
         Cd = (24/Re) + ((2.6*(Re/5))/(1+pow(Re/5,1.52))) + ((0.411*pow(Re/(2.63*pow(10,5)),-7.94))/(1+pow(Re/(2.63*pow(10,5)),-8))) + ((0.25*Re/pow(10,6))/(1+(Re/pow(10,6))))
 
+        #Equação da velocidade
         V = sqrt(D/(0.5*rho*Cd*pi*pow(D_esfera/2,2)))
 
+        #Equação do número de Reynolds
         Re_2 = V*D_esfera*rho/mi
+
         #Cálculo do erro
         erro = abs(Re_2.n - Re.n)
         Re = Re_2
+
+        #Cálculo da vazão mássica
         m = V*rho*pi*pow(D_tubo/2,2)
     return [Cd,V,Re,m]
 
 resultados += calculo_vazao_esfera(D_esfera,D_tubo,rho_ar,mi_ar)
 
 #Formatação da string para apresentação de resultados
-str_resultados += "Cd = " + str(resultados[4]) + "; Velocidade = " + str(resultados[5]) + "; Vazão Mássica = " + str(resultados[7]) + "; Número de Reynolds = " + str(resultados[6]) + "\n"
+str_resultados += "Cd = " + str(resultados[4]) + "; Velocidade = " + str(resultados[5]) + "; Vazão Mássica = " + str(resultados[7]) + "; Número de Reynolds = " + str(resultados[6]) + " ;Força de Arrasto = " + str(D) + "\n"
 
 print(str_resultados)

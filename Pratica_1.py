@@ -139,3 +139,7 @@ plt.title(f'Melhor Ajuste Polinomial\nGrau: {melhor_grau}, R²: {melhor_R2}')
 plt.xlabel('Frequência (Hz)') 
 plt.ylabel('Vazão Volumétrica ($m^3$/s)')  
 plt.show()
+
+valor = melhor_ajuste[0]*(17.85**3) + melhor_ajuste[1]*(17.85**2) + melhor_ajuste[2]*(17.85) + melhor_ajuste[3]
+valor = valor*rho_ar
+print(valor)
